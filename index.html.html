@@ -1,0 +1,2092 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Monajan HouseFin Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.1);
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --accent: #1d9e75;
+    --accent-light: #e1f5ee;
+    --danger: #e24b4a;
+    --danger-light: #fcebeb;
+    --warn: #ba7517;
+    --warn-light: #faeeda;
+    --info: #185fa5;
+    --info-light: #e6f1fb;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --surface: #242424;
+      --border: rgba(255,255,255,0.1);
+      --text: #f0f0f0;
+      --muted: #999;
+      --accent-light: #04342c;
+      --danger-light: #501313;
+      --warn-light: #412402;
+      --info-light: #042c53;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
+
+  /* NAV */
+  nav { background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 0 1rem; display: flex; align-items: center; gap: 0; position: sticky; top: 0; z-index: 100; overflow-x: auto; }
+  .nav-logo { font-size: 17px; font-weight: 600; color: var(--accent); padding: 1rem 1rem 1rem 0; white-space: nowrap; margin-right: 0.5rem; }
+  .nav-tab { padding: 1rem 0.75rem; font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; color: var(--muted); transition: all 0.15s; background: none; border-left: none; border-right: none; border-top: none; }
+  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+  .nav-tab:hover { color: var(--text); }
+
+  /* LAYOUT */
+  .page { display: none; padding: 1.5rem 1rem; max-width: 820px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+  .metric { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; }
+  .metric-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .metric-value { font-size: 22px; font-weight: 600; }
+  .metric.green .metric-value { color: var(--accent); }
+  .metric.red .metric-value { color: var(--danger); }
+  .metric.blue .metric-value { color: var(--info); }
+  .metric.amber .metric-value { color: var(--warn); }
+
+  /* FORMS */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  @media (max-width: 480px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 13px; color: var(--muted); font-weight: 500; }
+  input, select, textarea { width: 100%; padding: 0.6rem 0.75rem; border: 0.5px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--bg); color: var(--text); font-family: inherit; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  textarea { resize: vertical; min-height: 60px; }
+  button { padding: 0.6rem 1.25rem; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; border: 0.5px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; transition: all 0.15s; }
+  button:hover { background: var(--bg); }
+  .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-primary:hover { opacity: 0.9; background: var(--accent); }
+  .btn-danger { background: var(--danger); color: white; border-color: var(--danger); font-size: 12px; padding: 4px 10px; }
+  .btn-danger:hover { opacity: 0.9; background: var(--danger); }
+
+  /* LISTS */
+  .entry-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .entry { display: flex; align-items: center; gap: 0.75rem; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem; }
+  .entry-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .entry-info { flex: 1; min-width: 0; }
+  .entry-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .entry-sub { font-size: 12px; color: var(--muted); }
+  .entry-amount { font-weight: 600; font-size: 15px; text-align: right; flex-shrink: 0; }
+  .entry-amount.income { color: var(--accent); }
+  .entry-amount.expense { color: var(--danger); }
+  .entry-actions { display: flex; gap: 6px; align-items: center; }
+  .receipt-thumb { width: 36px; height: 36px; border-radius: 4px; object-fit: cover; cursor: pointer; border: 0.5px solid var(--border); }
+
+  /* BADGES */
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .badge-green { background: var(--accent-light); color: var(--accent); }
+  .badge-red { background: var(--danger-light); color: var(--danger); }
+  .badge-blue { background: var(--info-light); color: var(--info); }
+  .badge-amber { background: var(--warn-light); color: var(--warn); }
+
+  /* SECTION HEADERS */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .section-title { font-size: 16px; font-weight: 600; }
+  .section-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* BUDGET BARS */
+  .budget-item { margin-bottom: 1rem; }
+  .budget-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .budget-label { font-size: 14px; font-weight: 500; }
+  .budget-amounts { font-size: 13px; color: var(--muted); }
+  .progress-bar { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .fill-green { background: var(--accent); }
+  .fill-amber { background: var(--warn); }
+  .fill-red { background: var(--danger); }
+
+  /* PHOTO UPLOAD */
+  .photo-zone { border: 1.5px dashed var(--border); border-radius: var(--radius-sm); padding: 1.5rem; text-align: center; cursor: pointer; color: var(--muted); font-size: 13px; transition: border-color 0.15s; }
+  .photo-zone:hover { border-color: var(--accent); color: var(--accent); }
+  .photo-preview { max-width: 100%; max-height: 200px; border-radius: var(--radius-sm); margin-top: 0.5rem; }
+
+  /* CHART */
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* EMPTY STATE */
+  .empty { text-align: center; color: var(--muted); padding: 2rem; font-size: 14px; }
+
+  /* LIGHTBOX */
+  .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 999; align-items: center; justify-content: center; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: var(--radius-sm); }
+  .lightbox-close { position: fixed; top: 1rem; right: 1rem; color: white; font-size: 24px; cursor: pointer; background: none; border: none; padding: 0.5rem; }
+
+  /* INVEST WIDGET */
+  .invest-widget { background: var(--accent-light); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .invest-title { font-size: 14px; color: var(--accent); font-weight: 600; margin-bottom: 0.75rem; }
+  .invest-slider { display: flex; align-items: center; gap: 0.75rem; }
+  .invest-slider input[type=range] { flex: 1; accent-color: var(--accent); }
+  .invest-pct { font-size: 20px; font-weight: 700; color: var(--accent); min-width: 48px; }
+  .invest-breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem; }
+  .invest-box { background: var(--surface); border-radius: var(--radius-sm); padding: 0.75rem; }
+  .invest-box-label { font-size: 11px; color: var(--muted); }
+  .invest-box-value { font-size: 18px; font-weight: 600; color: var(--accent); }
+
+  /* FILTER */
+  .filter-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .filter-chip { padding: 4px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 0.5px solid var(--border); background: var(--surface); color: var(--muted); }
+  .filter-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* MONTH SELECTOR */
+  .month-select { padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); font-size: 13px; border: 0.5px solid var(--border); background: var(--surface); color: var(--text); }
+
+  /* RESPONSIVE NAV SCROLL */
+  nav::-webkit-scrollbar { display: none; }
+
+  /* PIN LOCK */
+  #pinOverlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1.5rem; padding: 2rem;
+  }
+  #pinOverlay.hidden { display: none; }
+  .pin-logo { font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
+  .pin-sub { font-size: 14px; color: var(--muted); text-align: center; }
+  .pin-dots { display: flex; gap: 12px; }
+  .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: transparent; transition: background 0.15s; }
+  .pin-dot.filled { background: var(--accent); }
+  .pin-pad { display: grid; grid-template-columns: repeat(3, 72px); gap: 12px; }
+  .pin-btn {
+    height: 72px; border-radius: 50%; font-size: 22px; font-weight: 500;
+    background: var(--surface); border: 0.5px solid var(--border);
+    color: var(--text); cursor: pointer; transition: background 0.12s;
+  }
+  .pin-btn:active { background: var(--accent-light); }
+  .pin-btn.del { font-size: 18px; color: var(--muted); }
+  .pin-error { font-size: 13px; color: var(--danger); min-height: 18px; }
+  .pin-link { font-size: 13px; color: var(--accent); cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- PIN LOCK OVERLAY -->
+<div id="pinOverlay">
+  <div class="pin-logo">🏠 Monajan HouseFin</div>
+  <div class="pin-sub" id="pinLabel">Enter your PIN</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-btn" onclick="pinPress('1')">1</button>
+    <button class="pin-btn" onclick="pinPress('2')">2</button>
+    <button class="pin-btn" onclick="pinPress('3')">3</button>
+    <button class="pin-btn" onclick="pinPress('4')">4</button>
+    <button class="pin-btn" onclick="pinPress('5')">5</button>
+    <button class="pin-btn" onclick="pinPress('6')">6</button>
+    <button class="pin-btn" onclick="pinPress('7')">7</button>
+    <button class="pin-btn" onclick="pinPress('8')">8</button>
+    <button class="pin-btn" onclick="pinPress('9')">9</button>
+    <div></div>
+    <button class="pin-btn" onclick="pinPress('0')">0</button>
+    <button class="pin-btn del" onclick="pinBack()">⌫</button>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+</div>
+
+<nav>
+  <div class="nav-logo">Monajan HouseFin</div>
+  <button class="nav-tab active" onclick="showPage('dashboard')">Dashboard</button>
+  <button class="nav-tab" onclick="showPage('income')">Income</button>
+  <button class="nav-tab" onclick="showPage('expenses')">Expenses</button>
+  <button class="nav-tab" onclick="showPage('budget')">Budget</button>
+  <button class="nav-tab" onclick="showPage('accounts')">Accounts</button>
+  <button class="nav-tab" onclick="showPage('obligations')">Obligations</button>
+  <button class="nav-tab" onclick="showPage('reminders')">Reminders</button>
+  <button class="nav-tab" onclick="showPage('settings')">Settings</button>
+</nav>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Overview</div>
+      <div class="section-sub" id="dash-period">This month</div>
+    </div>
+    <select class="month-select" id="dashMonth" onchange="renderDashboard()"></select>
+  </div>
+
+  <div class="metric-grid" id="dash-metrics"></div>
+
+  <div class="invest-widget">
+    <div class="invest-title">Investment & savings target</div>
+    <div class="invest-slider">
+      <span style="font-size:13px;color:var(--accent);">Invest</span>
+      <input type="range" min="0" max="80" value="20" id="investPct" oninput="updateInvestWidget()" step="5">
+      <span class="invest-pct" id="investPctLabel">20%</span>
+    </div>
+    <div class="invest-breakdown" id="investBreakdown"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-header" style="margin-bottom:0.75rem;">
+      <div class="section-title" style="font-size:14px;">Income vs Expenses</div>
+    </div>
+    <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="section-header" style="margin-bottom:0.75rem;">
+      <div class="section-title" style="font-size:14px;">Spending breakdown</div>
+    </div>
+    <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title" style="margin-bottom:0.75rem;font-size:14px;">Recent transactions</div>
+    <div id="recentList"></div>
+  </div>
+
+  <div class="card" id="dashRemWidget" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+      <div class="section-title" style="font-size:14px;">Upcoming bills &amp; payments</div>
+      <button onclick="showPage('reminders')" style="font-size:12px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">View all →</button>
+    </div>
+    <div id="dashRemList"></div>
+  </div>
+</div>
+
+<!-- INCOME -->
+<div class="page" id="page-income">
+  <div class="section-title" style="margin-bottom:1rem;">Add income</div>
+  <div class="card">
+    <input type="file" id="incScanInput" accept="image/*" capture="environment" style="display:none;" onchange="scanIncome(event)">
+    <button onclick="document.getElementById('incScanInput').click()" style="width:100%;margin-bottom:0.75rem;background:var(--accent);color:#fff;border:none;padding:0.85rem;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;">📷 Scan / Photo — Wise, GCash, Veem</button>
+    <div id="incScanStatus" style="font-size:13px;margin-bottom:0.75rem;color:var(--accent);display:none;padding:0.5rem;background:var(--accent-light);border-radius:6px;"></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Client / source</label>
+        <input type="text" id="inc-source" placeholder="e.g. Jim Fortin">
+      </div>
+      <div class="form-group">
+        <label>Amount (₱)</label>
+        <input type="number" id="inc-amount" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="inc-date">
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="inc-type">
+          <option>Client payment</option>
+          <option>Rental income</option>
+          <option>Retainer</option>
+          <option>Bonus</option>
+          <option>Refund</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Notes (optional)</label>
+        <textarea id="inc-notes" placeholder="Invoice #, project name..."></textarea>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="addIncome()" style="margin-top:0.75rem;width:100%;">Add income</button>
+  </div>
+
+  <div class="section-header">
+    <div class="section-title">Income history</div>
+    <select class="month-select" id="incMonth" onchange="renderIncome()"></select>
+  </div>
+  <div id="incomeTotal" style="margin-bottom:0.75rem;font-size:13px;color:var(--muted);"></div>
+  <div class="entry-list" id="incomeList"></div>
+</div>
+
+<!-- EXPENSES -->
+<div class="page" id="page-expenses">
+  <div class="section-title" style="margin-bottom:1rem;">Add expense</div>
+  <div class="card">
+    <input type="file" id="scanInput" accept="image/*" capture="environment" style="display:none;" onchange="scanReceipt(event)">
+    <button onclick="document.getElementById('scanInput').click()" style="width:100%;margin-bottom:0.75rem;background:var(--accent);color:#fff;border:none;padding:0.85rem;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;">📷 Scan / Photo — GCash, receipt, screenshot</button>
+    <div id="scanStatus" style="font-size:13px;margin-bottom:0.75rem;color:var(--accent);display:none;padding:0.5rem;background:var(--accent-light);border-radius:6px;"></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="exp-desc" placeholder="e.g. Weekly groceries">
+      </div>
+      <div class="form-group">
+        <label>Amount (₱)</label>
+        <input type="number" id="exp-amount" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="exp-cat" onchange="onCatChange(this)">
+          <option>Groceries</option>
+          <option>Bills & utilities</option>
+          <option>Mortgage</option>
+          <option>Taxes</option>
+          <option>Household Staff</option>
+          <option>Kids & family</option>
+          <option>Transport</option>
+          <option>Health</option>
+          <option>Family support</option>
+          <option>Dining out</option>
+          <option>Entertainment</option>
+          <option>Gifts & celebrations</option>
+          <option>Business</option>
+          <option>Clothing</option>
+          <option>Personal care</option>
+          <option>Subscriptions</option>
+          <option>Giving</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="exp-date">
+      </div>
+      <div class="form-group">
+        <label>Paid with</label>
+        <select id="exp-paymethod">
+          <option value="Cash">Cash / GCash / Debit</option>
+          <option value="Metro Bank CC">Metro Bank CC</option>
+          <option value="BPI CC">BPI CC</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Attach receipt photo (optional)</label>
+        <div class="photo-zone" id="photoZone" onclick="document.getElementById('receiptInput').click()">
+          <div>📎 Tap to attach photo for records</div>
+          <div style="font-size:11px;margin-top:4px;">Supports JPG, PNG, HEIC</div>
+        </div>
+        <input type="file" id="receiptInput" accept="image/*" capture="environment" style="display:none;" onchange="handlePhoto(event)">
+        <img id="photoPreview" class="photo-preview" style="display:none;">
+      </div>
+    </div>
+    <button class="btn-primary" onclick="addExpense()" style="margin-top:0.75rem;width:100%;">Add expense</button>
+  </div>
+
+  <div class="section-header">
+    <div class="section-title">Expenses</div>
+    <select class="month-select" id="expMonth" onchange="renderExpenses()"></select>
+  </div>
+  <div class="filter-row" id="catFilters"></div>
+  <div id="expenseTotal" style="margin-bottom:0.75rem;font-size:13px;color:var(--muted);"></div>
+  <div class="entry-list" id="expenseList"></div>
+</div>
+
+<!-- BUDGET -->
+<div class="page" id="page-budget">
+  <div class="section-title" style="margin-bottom:0.25rem;">Monthly budget limits</div>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Set a spending limit per category. Track how you're doing each month.</div>
+  <div class="card" id="budgetForm"></div>
+
+  <div style="margin-top:1.5rem;">
+    <div class="section-title" style="margin-bottom:0.25rem;">Sinking Funds — Pre-funded categories</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Set aside a lump sum once for annual expenses. The app tracks the balance as you spend.</div>
+    <div class="card" style="margin-bottom:1rem;">
+      <div style="font-size:13px;font-weight:500;margin-bottom:0.75rem;">Add / top up a fund</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Category</label>
+          <select id="sfCat">
+            <option>Groceries</option>
+            <option>Bills & utilities</option>
+            <option>Mortgage</option>
+            <option>Taxes</option>
+            <option>Household Staff</option>
+            <option>Kids & family</option>
+            <option>Transport</option>
+            <option selected>Health</option>
+            <option>Family support</option>
+            <option>Dining out</option>
+            <option>Entertainment</option>
+            <option>Gifts & celebrations</option>
+            <option>Business</option>
+            <option>Clothing</option>
+            <option>Personal care</option>
+            <option>Subscriptions</option>
+            <option>Giving</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Amount set aside (₱)</label>
+          <input type="number" id="sfAmount" placeholder="e.g. 40000" min="0">
+        </div>
+        <div class="form-group full">
+          <label>Label (optional)</label>
+          <input type="text" id="sfLabel" placeholder="e.g. Hospitalization 2026, Wife salon year budget">
+        </div>
+      </div>
+      <button onclick="addSinkingFund()" style="width:100%;">Set aside funds</button>
+    </div>
+    <div id="sinkingFundsList"></div>
+  </div>
+
+  <div style="margin-top:1.5rem;">
+    <div class="section-header">
+      <div class="section-title">This month's progress</div>
+      <select class="month-select" id="budgetMonth" onchange="renderBudget()"></select>
+    </div>
+    <div id="budgetProgress"></div>
+  </div>
+</div>
+
+<!-- OBLIGATIONS -->
+<div class="page" id="page-obligations">
+  <div class="section-title" style="margin-bottom:0.25rem;">Family Debts & Obligations</div>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Tracked for awareness — no fixed repayment schedule.</div>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:0.75rem;">Outstanding Debts</div>
+    <div id="debtList"></div>
+    <div style="border-top:1px solid var(--border);margin-top:0.75rem;padding-top:0.75rem;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;font-weight:600;">Total owed</span>
+      <span id="debtTotal" style="font-size:16px;font-weight:700;color:var(--danger);"></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:0.5rem;">Emergency Fund Goal</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:0.75rem;">Target: 6× monthly living expenses</div>
+    <div id="emergencyGoal"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:14px;font-weight:600;margin-bottom:0.5rem;">Log a debt payment</div>
+    <div class="form-group"><label>Payee</label>
+      <select id="debtPayee">
+        <option value="Mom (Leonora)">Mom (Leonora)</option>
+        <option value="Sister">Sister</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Amount paid (₱)</label><input type="number" id="debtAmt" placeholder="0"></div>
+    <div class="form-group"><label>Date</label><input type="date" id="debtDate"></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="debtNotes" placeholder="Optional"></div>
+    <button onclick="logDebtPayment()">Record payment</button>
+  </div>
+</div>
+
+<!-- REMINDERS -->
+<div class="page" id="page-reminders">
+  <div class="section-title" style="margin-bottom:0.25rem;">Bill & Payment Reminders</div>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Email reminders sent to zhalucci@gmail.com · CC risobry@gmail.com</div>
+
+  <!-- Upcoming alert banner -->
+  <div id="remBanner"></div>
+
+  <!-- Credit card due dates -->
+  <div class="card" style="margin-bottom:1rem;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:0.75rem;">Credit Card Due Dates</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0.75rem;">
+      <div>
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Metro Bank CC — day of month</label>
+        <input type="number" id="cc-mb-day" min="1" max="31" placeholder="e.g. 15" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;" onchange="saveCCDue()">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">BPI CC — day of month</label>
+        <input type="number" id="cc-bpi-day" min="1" max="31" placeholder="e.g. 20" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;" onchange="saveCCDue()">
+      </div>
+    </div>
+    <div id="ccDueSummary" style="font-size:12px;color:var(--muted);"></div>
+  </div>
+
+  <!-- Add reminder form -->
+  <div class="card" style="margin-bottom:1rem;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:0.75rem;">Add Reminder</div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Bill / Payment name</label>
+        <input type="text" id="rem-name" placeholder="e.g. Internet, Electricity, Neslyn">
+      </div>
+      <div class="form-group">
+        <label>Recurrence</label>
+        <select id="rem-type">
+          <option value="monthly">Monthly</option>
+          <option value="annual">Annual</option>
+          <option value="one-time">One-time</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Due day (day of month)</label>
+        <input type="number" id="rem-day" min="1" max="31" placeholder="e.g. 5">
+      </div>
+      <div class="form-group">
+        <label>Amount (₱) — optional</label>
+        <input type="number" id="rem-amount" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Remind X days before</label>
+        <input type="number" id="rem-advance" value="3" min="0" max="14">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Notes (optional)</label>
+        <input type="text" id="rem-notes" placeholder="e.g. pay via GCash">
+      </div>
+    </div>
+    <button onclick="addReminder()">Add Reminder</button>
+  </div>
+
+  <!-- Reminders list -->
+  <div id="remList"></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="page" id="page-settings">
+  <div class="section-title" style="margin-bottom:1rem;">Settings</div>
+  <div class="card">
+    <div style="font-size:14px;font-weight:500;margin-bottom:0.75rem;">Currency</div>
+    <div class="form-group">
+      <label>Symbol</label>
+      <select id="currencySymbol" onchange="saveSetting('currency', this.value); refreshAll();">
+        <option value="₱">₱ (Philippine Peso)</option>
+        <option value="$">$ (Dollar)</option>
+        <option value="AUD $">AUD $ (Australian Dollar)</option>
+        <option value="€">€ (Euro)</option>
+        <option value="£">£ (Pound)</option>
+      </select>
+    </div>
+  </div>
+  <div class="card" style="margin-top:1rem;">
+    <div style="font-size:14px;font-weight:500;margin-bottom:0.75rem;">PIN Lock</div>
+    <div id="pinStatus" style="font-size:13px;color:var(--muted);margin-bottom:0.75rem;"></div>
+    <button onclick="startSetPin()" style="margin-right:0.5rem;" id="btnSetPin">Set / Change PIN</button>
+    <button onclick="removePin()" id="btnRemovePin" style="color:var(--danger);border-color:var(--danger);display:none;">Remove PIN</button>
+  </div>
+  <div class="card" style="margin-top:1rem;">
+    <div style="font-size:14px;font-weight:500;margin-bottom:0.75rem;">Data</div>
+    <button onclick="exportCSV()" style="margin-right:0.5rem;">Export to CSV</button>
+    <button onclick="requirePin(() => { if(confirm('Delete ALL data? This cannot be undone.')) { _DOC.delete().then(() => { _cache = {}; localStorage.removeItem('hf_pin'); location.reload(); }); } })" style="color:var(--danger);border-color:var(--danger);">Clear all data</button>
+  </div>
+  <div class="card" style="margin-top:1rem;">
+    <div style="font-size:14px;font-weight:500;margin-bottom:0.5rem;">Tips</div>
+    <ul style="font-size:13px;color:var(--muted);padding-left:1.25rem;line-height:2;">
+      <li>Add this page to your phone's home screen for quick access</li>
+      <li>Use the camera button on expenses to snap receipts instantly</li>
+      <li>Set budget limits in the Budget tab to track category spending</li>
+      <li>All data is stored on this device — no account needed</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ACCOUNTS -->
+<div class="page" id="page-accounts">
+  <div class="section-title" style="margin-bottom:0.25rem;">Bank Accounts</div>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Update your balances manually whenever you check your bank.</div>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:0.75rem;">💳 Metro Bank</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Savings balance (₱)</label>
+        <input type="number" id="mb-savings" placeholder="0.00" step="0.01" min="0" oninput="saveAccountBalance('mb_savings', this.value)">
+      </div>
+      <div class="form-group">
+        <label>Last updated</label>
+        <input type="date" id="mb-savings-date" onchange="saveAccountBalance('mb_savings_date', this.value)">
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:0.75rem;">🏦 BPI</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Savings balance (₱)</label>
+        <input type="number" id="bpi-savings" placeholder="0.00" step="0.01" min="0" oninput="saveAccountBalance('bpi_savings', this.value)">
+      </div>
+      <div class="form-group">
+        <label>Last updated</label>
+        <input type="date" id="bpi-savings-date" onchange="saveAccountBalance('bpi_savings_date', this.value)">
+      </div>
+    </div>
+  </div>
+
+  <div style="font-size:14px;font-weight:600;margin-bottom:0.75rem;margin-top:1.5rem;">Total cash on hand</div>
+  <div id="totalCashCard" class="card" style="margin-bottom:1.5rem;"></div>
+
+  <div class="section-title" style="margin-bottom:0.25rem;">Withdraw / Transfer</div>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Log a cash withdrawal or transfer between accounts — balances update automatically.</div>
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Type</label>
+        <select id="txn-type" onchange="toggleTransferTo()">
+          <option value="withdrawal">Withdrawal (ATM / cash out)</option>
+          <option value="transfer">Transfer to other account</option>
+          <option value="deposit">Deposit / cash in</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>From account</label>
+        <select id="txn-from">
+          <option value="mb">Metro Bank</option>
+          <option value="bpi">BPI</option>
+        </select>
+      </div>
+      <div class="form-group" id="txn-to-group" style="display:none;">
+        <label>To account</label>
+        <select id="txn-to">
+          <option value="bpi">BPI</option>
+          <option value="mb">Metro Bank</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Amount (₱)</label>
+        <input type="number" id="txn-amount" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="txn-date">
+      </div>
+      <div class="form-group full">
+        <label>Notes (optional)</label>
+        <input type="text" id="txn-notes" placeholder="e.g. grocery money, bills payment">
+      </div>
+    </div>
+    <button class="btn-primary" onclick="logAccountTxn()" style="width:100%;margin-top:0.75rem;">Log transaction</button>
+  </div>
+
+  <div class="section-title" style="margin-bottom:0.25rem;">Transaction history</div>
+  <div id="acctTxnList" style="margin-bottom:1.5rem;"></div>
+
+  <div class="section-title" style="margin-bottom:0.25rem;">Credit Cards</div>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Automatically tallied from expenses you tagged to each card this month.</div>
+  <div id="ccSummary"></div>
+
+  <div class="section-title" style="margin-bottom:0.25rem;margin-top:1.5rem;">CC Expenses this month</div>
+  <div id="ccExpenseList"></div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('open')">
+  <button class="lightbox-close">✕</button>
+  <img id="lightboxImg" src="">
+</div>
+
+<script>
+const DB_INC = 'hf_income';
+const DB_EXP = 'hf_expenses';
+const DB_BDG = 'hf_budget';
+const DB_SET = 'hf_settings';
+
+let barChartInst = null, pieChartInst = null;
+let currentPhotoData = null;
+let activeExpCat = 'All';
+
+// ---- FIREBASE SYNC ----
+const _fb = firebase.initializeApp({
+  apiKey: "AIzaSyBHO9-_gR3OBJb9hq3Bv8BNRdL9753clko",
+  authDomain: "mofin-10f7e.firebaseapp.com",
+  projectId: "mofin-10f7e",
+  storageBucket: "mofin-10f7e.firebasestorage.app",
+  messagingSenderId: "1029443527488",
+  appId: "1:1029443527488:web:f8d6c3fae9ce44b34250a5"
+});
+const _db = firebase.firestore();
+const _DOC = _db.collection('housefin').doc('data');
+let _cache = {};
+let _currentPage = 'dashboard';
+
+function load(key) { const v = _cache[key]; return Array.isArray(v) ? v : []; }
+function loadObj(key, def) { return (_cache[key] !== undefined && _cache[key] !== null) ? _cache[key] : def; }
+function save(key, data) {
+  _cache[key] = data;
+  _DOC.set({ [key]: data }, { merge: true }).catch(e => console.warn('Sync error:', e));
+}
+
+function refreshAll() {
+  try {
+    if (_currentPage === 'dashboard') renderDashboard();
+    else if (_currentPage === 'income') renderIncome();
+    else if (_currentPage === 'expenses') renderExpenses();
+    else if (_currentPage === 'budget') { renderBudgetForm(); renderBudget(); renderSinkingFunds(); }
+    else if (_currentPage === 'accounts') renderAccounts();
+    else if (_currentPage === 'obligations') renderObligations();
+    else if (_currentPage === 'reminders') renderReminders();
+  } catch(e) {}
+}
+
+async function initFirebase() {
+  try { emailjs.init(EJS_KEY); } catch(e) { console.warn('EmailJS not loaded:', e); }
+  document.getElementById('pinLabel').textContent = 'Connecting…';
+  try {
+    const snap = await _DOC.get();
+    if (snap.exists) _cache = snap.data() || {};
+  } catch(e) { console.warn('Offline — using local cache'); }
+
+  seedData();
+  setTodayDates();
+  populateMonthSelects();
+  const sym = getSetting('currency', '₱');
+  document.getElementById('currencySymbol').value = sym;
+  renderDashboard();
+  initPinLock();
+  refreshPinSettings();
+  autoSendReminders();
+
+  // Real-time listener — updates all devices instantly
+  _DOC.onSnapshot(snap => {
+    if (snap.exists) {
+      _cache = snap.data() || {};
+      refreshAll();
+    }
+  }, err => console.warn('Listener error:', err));
+}
+function saveSetting(k, v) { const s = loadObj(DB_SET, {}); s[k] = v; save(DB_SET, s); }
+function getSetting(k, def) { return loadObj(DB_SET, {})[k] ?? def; }
+
+const CAT_ICONS = {
+  'Groceries': '🛒', 'Bills & utilities': '💡', 'Mortgage': '🏠',
+  'Household Staff': '🧹', 'Kids & family': '👶', 'Transport': '🚗',
+  'Health': '💊', 'Dining out': '🍽️', 'Entertainment': '🎬',
+  'Business': '💼', 'Clothing': '👕', 'Personal care': '✂️',
+  'Subscriptions': '📱', 'Giving': '⛪', 'Taxes': '🧾', 'Health': '💊', 'Family support': '❤️', 'Dining out': '🍽️', 'Entertainment': '🎬', 'Gifts & celebrations': '🎁', 'Personal care': '✂️', 'Other': '📦'
+};
+const CAT_COLORS = {
+  'Groceries': '#1d9e75', 'Bills & utilities': '#185fa5', 'Mortgage': '#0c447c',
+  'Household Staff': '#7f77dd', 'Kids & family': '#d4537e', 'Transport': '#ba7517',
+  'Health': '#e24b4a', 'Dining out': '#993556', 'Entertainment': '#d85a30',
+  'Business': '#639922', 'Clothing': '#0f6e56', 'Personal care': '#534ab7',
+  'Subscriptions': '#3b6d11', 'Giving': '#534ab7', 'Taxes': '#854f0b', 'Health': '#e24b4a', 'Family support': '#d4537e', 'Dining out': '#993556', 'Entertainment': '#d85a30', 'Gifts & celebrations': '#7f77dd', 'Personal care': '#534ab7', 'Other': '#888780'
+};
+
+function fmt(n) {
+  const sym = getSetting('currency', '₱');
+  return sym + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function monthLabel(ym) {
+  const [y, m] = ym.split('-');
+  return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+}
+
+function allMonths() {
+  const inc = load(DB_INC), exp = load(DB_EXP);
+  const all = [...inc, ...exp].map(e => e.date.slice(0, 7));
+  const now = new Date();
+  all.push(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+  return [...new Set(all)].sort().reverse();
+}
+
+function populateMonthSelects() {
+  const months = allMonths();
+  const selects = ['dashMonth', 'incMonth', 'expMonth', 'budgetMonth'];
+  selects.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cur = el.value;
+    el.innerHTML = months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+    if (cur && months.includes(cur)) el.value = cur;
+  });
+}
+
+function currentMonth(selectId) {
+  const el = document.getElementById(selectId);
+  return el ? el.value : allMonths()[0];
+}
+
+function filterByMonth(arr, ym) {
+  return arr.filter(e => e.date.startsWith(ym));
+}
+
+// ---- INCOME ----
+function addIncome() {
+  const source = document.getElementById('inc-source').value.trim();
+  const amount = parseFloat(document.getElementById('inc-amount').value);
+  const date = document.getElementById('inc-date').value;
+  const type = document.getElementById('inc-type').value;
+  const notes = document.getElementById('inc-notes').value.trim();
+  if (!source || !amount || !date) { alert('Please fill in source, amount, and date.'); return; }
+  const inc = load(DB_INC);
+  inc.push({ id: Date.now(), source, amount, date, type, notes });
+  save(DB_INC, inc);
+  document.getElementById('inc-source').value = '';
+  document.getElementById('inc-amount').value = '';
+  document.getElementById('inc-notes').value = '';
+  populateMonthSelects();
+  renderIncome();
+  renderDashboard();
+}
+
+function deleteIncome(id) {
+  requirePin(() => {
+    save(DB_INC, load(DB_INC).filter(e => e.id !== id));
+    renderIncome(); renderDashboard();
+  });
+}
+
+function renderIncome() {
+  const ym = currentMonth('incMonth');
+  const inc = filterByMonth(load(DB_INC), ym);
+  const total = inc.reduce((s, e) => s + Number(e.amount), 0);
+  document.getElementById('incomeTotal').textContent = inc.length ? `${inc.length} entries — Total: ${fmt(total)}` : '';
+  const list = document.getElementById('incomeList');
+  if (!inc.length) { list.innerHTML = '<div class="empty">No income recorded for this month.</div>'; return; }
+  list.innerHTML = inc.sort((a, b) => b.date.localeCompare(a.date)).map(e => `
+    <div class="entry">
+      <div class="entry-icon" style="background:var(--accent-light);font-size:18px;">💰</div>
+      <div class="entry-info">
+        <div class="entry-title">${e.source}</div>
+        <div class="entry-sub">${e.date} · <span class="badge badge-green">${e.type}</span>${e.notes ? ' · ' + e.notes : ''}</div>
+      </div>
+      <div class="entry-amount income">${fmt(e.amount)}</div>
+      <div class="entry-actions">
+        <button class="btn-danger" onclick="deleteIncome(${e.id})">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+// ---- EXPENSES ----
+// ---- OCR SCAN ----
+// ---- GEMINI AI SCAN ----
+const GEMINI_KEY = 'AQ.Ab8RN6JzcDYBN5RrDqbE3i5lNAd4yzIs-CjtRgT99s60t0X0vw';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
+const CC_AUTO_CATS = new Set(['Business', 'Subscriptions']);
+
+function onCatChange(sel) {
+  if (CC_AUTO_CATS.has(sel.value)) {
+    document.getElementById('exp-paymethod').value = 'Metro Bank CC';
+  }
+}
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function scanWithAI(file, statusEl, mode) {
+  statusEl.style.display = 'block';
+  statusEl.style.color = 'var(--accent)';
+  statusEl.textContent = '🤖 AI is reading your image…';
+  try {
+    const base64 = await fileToBase64(file);
+    const mimeType = file.type || 'image/jpeg';
+    const prompt = `You are a financial receipt analyzer for a Filipino family budget app. Analyze this image carefully and extract the financial transaction data.
+
+Return ONLY valid JSON with exactly these fields (no markdown, no extra text):
+{
+  "amount": <number in Philippine Peso, digits only, e.g. 1500.00, or null if not found>,
+  "description": "<brief description of what was purchased or the transaction name, max 60 chars, or null>",
+  "category": <one of exactly: "Groceries","Bills & utilities","Transport","Health","Dining out","Entertainment","Business","Subscriptions","Personal care","Kids & family","Clothing","Giving","Household Staff","Mortgage","Taxes","Family support","Gifts & celebrations","Other" — or null>,
+  "payMethod": <one of: "Metro Bank CC","BPI CC","Cash" — use Metro Bank CC for any business tool, subscription, or online service; Cash for everything else — or null>,
+  "source": "<if income: name of sending platform or person, e.g. Wise, GCash, Veem, PayPal, or null>",
+  "incomeType": <one of: "Client payment","Rental income","Refund","Other income" — only if isIncome is true, else null>,
+  "isIncome": <true if this shows money being RECEIVED by the user, false if money was SPENT>
+}
+
+Key rules:
+- GCash/Maya showing "You received" or "credited" = isIncome true
+- Wise/Veem/PayPal transfer received = isIncome true, source = platform name
+- Supermarket/restaurant/store receipts = isIncome false, pick the TOTAL or GRAND TOTAL as amount
+- Meralco/PLDT/water bills = Bills & utilities
+- Business subscriptions (Canva, Adobe, ChatGPT, SEMrush, etc.) = Business + Metro Bank CC
+- Philippine Peso amounts may show as ₱, PHP, or just numbers`;
+
+    const resp = await Promise.race([
+      fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType, data: base64 } }] }],
+          generationConfig: { temperature: 0.1 }
+        })
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 30000))
+    ]);
+
+    if (!resp.ok) throw new Error(`API ${resp.status}`);
+    const data = await resp.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const json = raw.replace(/```json|```/g, '').trim();
+    return JSON.parse(json);
+  } catch(e) {
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = e.message === 'timeout'
+      ? '⚠ Timed out — try a clearer photo or fill in manually.'
+      : '⚠ AI scan failed — fill in manually. (' + e.message + ')';
+    return null;
+  }
+}
+
+async function scanIncome(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('incScanStatus');
+  const result = await scanWithAI(file, statusEl, 'income');
+  if (!result) { event.target.value = ''; return; }
+
+  if (result.amount) document.getElementById('inc-amount').value = result.amount.toFixed(2);
+  if (result.source) document.getElementById('inc-source').value = result.source.slice(0, 60);
+  if (result.incomeType) {
+    const typeEl = document.getElementById('inc-type');
+    for (let i = 0; i < typeEl.options.length; i++) {
+      if (typeEl.options[i].value === result.incomeType) { typeEl.selectedIndex = i; break; }
+    }
+  }
+  statusEl.style.color = result.amount ? 'var(--accent)' : 'var(--danger)';
+  statusEl.textContent = result.amount
+    ? `✓ Found ₱${Number(result.amount).toLocaleString()}${result.source ? ' from ' + result.source : ''} — review and confirm.`
+    : '⚠ Could not find amount — fill in manually.';
+  event.target.value = '';
+}
+
+async function scanReceipt(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('scanStatus');
+  const result = await scanWithAI(file, statusEl, 'expense');
+  if (!result) { event.target.value = ''; return; }
+
+  if (result.amount) document.getElementById('exp-amount').value = result.amount.toFixed(2);
+  if (result.description) document.getElementById('exp-desc').value = result.description;
+  if (result.category) {
+    const sel = document.getElementById('exp-cat');
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === result.category) { sel.selectedIndex = i; break; }
+    }
+  }
+  if (result.payMethod) document.getElementById('exp-paymethod').value = result.payMethod;
+
+  statusEl.style.color = result.amount ? 'var(--accent)' : 'var(--danger)';
+  statusEl.textContent = result.amount
+    ? `✓ ₱${Number(result.amount).toLocaleString()}${result.category ? ' · ' + result.category : ''}${result.payMethod ? ' · ' + result.payMethod : ''} — review and confirm.`
+    : '⚠ Could not find amount — fill in manually.';
+  event.target.value = '';
+}
+
+function handlePhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentPhotoData = e.target.result;
+    const prev = document.getElementById('photoPreview');
+    prev.src = currentPhotoData;
+    prev.style.display = 'block';
+    document.getElementById('photoZone').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function addExpense() {
+  const desc = document.getElementById('exp-desc').value.trim();
+  const amount = parseFloat(document.getElementById('exp-amount').value);
+  const cat = document.getElementById('exp-cat').value;
+  const date = document.getElementById('exp-date').value;
+  if (!desc || !amount || !date) { alert('Please fill in description, amount, and date.'); return; }
+  const exp = load(DB_EXP);
+  const payMethod = document.getElementById('exp-paymethod').value;
+  exp.push({ id: Date.now(), desc, amount, cat, date, payMethod, receipt: currentPhotoData || null });
+  save(DB_EXP, exp);
+  document.getElementById('exp-desc').value = '';
+  document.getElementById('exp-amount').value = '';
+  document.getElementById('photoPreview').style.display = 'none';
+  document.getElementById('photoZone').style.display = 'block';
+  document.getElementById('receiptInput').value = '';
+  currentPhotoData = null;
+  activeExpCat = 'All';
+  populateMonthSelects();
+  renderExpenses();
+  renderDashboard();
+}
+
+function deleteExpense(id) {
+  requirePin(() => {
+    save(DB_EXP, load(DB_EXP).filter(e => e.id !== id));
+    renderExpenses(); renderDashboard(); renderBudget();
+  });
+}
+
+function renderCatFilters(expenses) {
+  const cats = ['All', ...new Set(expenses.map(e => e.cat))];
+  document.getElementById('catFilters').innerHTML = cats.map(c => `
+    <div class="filter-chip ${activeExpCat === c ? 'active' : ''}" onclick="activeExpCat='${c}';renderExpenses();">${c}</div>`).join('');
+}
+
+function renderExpenses() {
+  const ym = currentMonth('expMonth');
+  const all = filterByMonth(load(DB_EXP), ym);
+  renderCatFilters(all);
+  const exp = activeExpCat === 'All' ? all : all.filter(e => e.cat === activeExpCat);
+  const total = exp.reduce((s, e) => s + Number(e.amount), 0);
+  document.getElementById('expenseTotal').textContent = exp.length ? `${exp.length} entries — Total: ${fmt(total)}` : '';
+  const list = document.getElementById('expenseList');
+  if (!exp.length) { list.innerHTML = '<div class="empty">No expenses found.</div>'; return; }
+  list.innerHTML = exp.sort((a, b) => b.date.localeCompare(a.date)).map(e => `
+    <div class="entry">
+      <div class="entry-icon" style="background:${CAT_COLORS[e.cat] || '#888'}22;font-size:18px;">${CAT_ICONS[e.cat] || '📦'}</div>
+      <div class="entry-info">
+        <div class="entry-title">${e.desc}</div>
+        <div class="entry-sub">${e.date} · <span class="badge badge-blue">${e.cat}</span></div>
+      </div>
+      <div class="entry-amount expense">-${fmt(e.amount)}</div>
+      <div class="entry-actions">
+        ${e.receipt ? `<img class="receipt-thumb" src="${e.receipt}" onclick="openLightbox('${e.id}')" title="View receipt">` : ''}
+        <button class="btn-danger" onclick="deleteExpense(${e.id})">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function openLightbox(id) {
+  const exp = load(DB_EXP).find(e => e.id == id);
+  if (!exp || !exp.receipt) return;
+  document.getElementById('lightboxImg').src = exp.receipt;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+// ---- BUDGET ----
+const BUDGET_CATS = ['Groceries', 'Bills & utilities', 'Mortgage', 'Taxes', 'Household Staff', 'Kids & family', 'Transport', 'Health', 'Family support', 'Dining out', 'Entertainment', 'Gifts & celebrations', 'Business', 'Clothing', 'Personal care', 'Subscriptions', 'Giving', 'Other'];
+
+function renderBudgetForm() {
+  const bdg = loadObj(DB_BDG, {});
+  document.getElementById('budgetForm').innerHTML = `
+    <div style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Set $0 to skip tracking that category.</div>
+    <div class="form-grid">
+      ${BUDGET_CATS.map(c => `
+        <div class="form-group">
+          <label>${CAT_ICONS[c] || ''} ${c}</label>
+          <input type="number" min="0" step="10" placeholder="0" value="${bdg[c] || ''}"
+            oninput="saveBudgetCat('${c}', this.value)" id="bdg-${c.replace(/[^a-z]/gi,'_')}">
+        </div>`).join('')}
+    </div>`;
+}
+
+function saveBudgetCat(cat, val) {
+  const bdg = loadObj(DB_BDG, {});
+  if (val && parseFloat(val) > 0) bdg[cat] = parseFloat(val);
+  else delete bdg[cat];
+  save(DB_BDG, bdg);
+  renderBudget();
+}
+
+function renderBudget() {
+  const ym = currentMonth('budgetMonth');
+  const bdg = loadObj(DB_BDG, {});
+  const exp = filterByMonth(load(DB_EXP), ym);
+  const bycat = {};
+  exp.forEach(e => { bycat[e.cat] = (bycat[e.cat] || 0) + Number(e.amount); });
+  const cats = [...new Set([...Object.keys(bdg), ...Object.keys(bycat)])];
+  if (!cats.length) { document.getElementById('budgetProgress').innerHTML = '<div class="empty">Set budget limits above to start tracking.</div>'; return; }
+  document.getElementById('budgetProgress').innerHTML = cats.map(c => {
+    const spent = bycat[c] || 0;
+    const limit = bdg[c] || 0;
+    const pct = limit ? Math.min(100, (spent / limit) * 100) : 0;
+    const fillClass = pct < 70 ? 'fill-green' : pct < 90 ? 'fill-amber' : 'fill-red';
+    return `<div class="budget-item">
+      <div class="budget-row">
+        <div class="budget-label">${CAT_ICONS[c] || ''} ${c}</div>
+        <div class="budget-amounts">${fmt(spent)}${limit ? ' / ' + fmt(limit) : ' (no limit)'}</div>
+      </div>
+      ${limit ? `<div class="progress-bar"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ---- DASHBOARD ----
+function updateInvestWidget() {
+  const pct = parseInt(document.getElementById('investPct').value);
+  document.getElementById('investPctLabel').textContent = pct + '%';
+  saveSetting('investPct', pct);
+  renderDashboard();
+}
+
+function renderDashboard() {
+  const ym = currentMonth('dashMonth');
+  document.getElementById('dash-period').textContent = monthLabel(ym);
+  const inc = filterByMonth(load(DB_INC), ym);
+  const exp = filterByMonth(load(DB_EXP), ym);
+  const totalInc = inc.reduce((s, e) => s + Number(e.amount), 0);
+  const totalExp = exp.reduce((s, e) => s + Number(e.amount), 0);
+  const net = totalInc - totalExp;
+  const investPct = getSetting('investPct', 20);
+  document.getElementById('investPct').value = investPct;
+  document.getElementById('investPctLabel').textContent = investPct + '%';
+
+  document.getElementById('dash-metrics').innerHTML = `
+    <div class="metric green"><div class="metric-label">Total income</div><div class="metric-value">${fmt(totalInc)}</div></div>
+    <div class="metric red"><div class="metric-label">Total expenses</div><div class="metric-value">${fmt(totalExp)}</div></div>
+    <div class="metric ${net >= 0 ? 'blue' : 'red'}"><div class="metric-label">Net balance</div><div class="metric-value">${fmt(net)}</div></div>
+    <div class="metric amber"><div class="metric-label">Savings rate</div><div class="metric-value">${totalInc ? Math.round((net / totalInc) * 100) : 0}%</div></div>`;
+
+  const investAmt = Math.max(0, net * (investPct / 100));
+  const spendAmt = Math.max(0, net - investAmt);
+  document.getElementById('investBreakdown').innerHTML = `
+    <div class="invest-box"><div class="invest-box-label">Available to invest / save</div><div class="invest-box-value">${fmt(investAmt)}</div></div>
+    <div class="invest-box"><div class="invest-box-label">Available to spend freely</div><div class="invest-box-value">${fmt(spendAmt)}</div></div>`;
+
+  // Bar chart — last 6 months
+  const months = allMonths().slice(0, 6).reverse();
+  const allInc = load(DB_INC), allExp = load(DB_EXP);
+  const barData = months.map(m => ({
+    m, inc: filterByMonth(allInc, m).reduce((s, e) => s + Number(e.amount), 0),
+    exp: filterByMonth(allExp, m).reduce((s, e) => s + Number(e.amount), 0)
+  }));
+  if (barChartInst) barChartInst.destroy();
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  barChartInst = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: barData.map(d => monthLabel(d.m).split(' ')[0]),
+      datasets: [
+        { label: 'Income', data: barData.map(d => d.inc), backgroundColor: '#1d9e7599' },
+        { label: 'Expenses', data: barData.map(d => d.exp), backgroundColor: '#e24b4a99' }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => getSetting('currency','$') + v.toLocaleString() } } } }
+  });
+
+  // Pie chart
+  const bycat = {};
+  exp.forEach(e => { bycat[e.cat] = (bycat[e.cat] || 0) + Number(e.amount); });
+  const cats = Object.keys(bycat);
+  if (pieChartInst) pieChartInst.destroy();
+  const pieCtx = document.getElementById('pieChart').getContext('2d');
+  if (cats.length) {
+    pieChartInst = new Chart(pieCtx, {
+      type: 'doughnut',
+      data: {
+        labels: cats,
+        datasets: [{ data: cats.map(c => bycat[c]), backgroundColor: cats.map(c => CAT_COLORS[c] || '#888'), borderWidth: 1 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 12 }, boxWidth: 12 } } } }
+    });
+  } else {
+    pieChartInst = null;
+    pieCtx.clearRect(0, 0, pieCtx.canvas.width, pieCtx.canvas.height);
+  }
+
+  // Recent
+  const recent = [...inc.map(e => ({ ...e, _type: 'income' })), ...exp.map(e => ({ ...e, _type: 'expense' }))]
+    .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+  document.getElementById('recentList').innerHTML = recent.length ? recent.map(e => `
+    <div class="entry" style="margin-bottom:6px;">
+      <div class="entry-icon" style="background:${e._type === 'income' ? 'var(--accent-light)' : (CAT_COLORS[e.cat]||'#888')+'22'};font-size:16px;">${e._type === 'income' ? '💰' : (CAT_ICONS[e.cat]||'📦')}</div>
+      <div class="entry-info">
+        <div class="entry-title">${e._type === 'income' ? e.source : e.desc}</div>
+        <div class="entry-sub">${e.date}</div>
+      </div>
+      <div class="entry-amount ${e._type}">${e._type === 'income' ? '+' : '-'}${fmt(e.amount)}</div>
+    </div>`).join('') : '<div class="empty">No transactions this month.</div>';
+
+  renderDashRemWidget();
+}
+
+// ---- EXPORT ----
+function exportCSV() {
+  const inc = load(DB_INC).map(e => `"${e.date}","income","${e.source}","${e.type}",${e.amount},""`);
+  const exp = load(DB_EXP).map(e => `"${e.date}","expense","${e.desc}","${e.cat}",${e.amount},"${e.receipt ? 'receipt attached' : ''}"`);
+  const csv = ['date,type,description,category,amount,notes', ...inc, ...exp].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'housefin_export.csv';
+  a.click();
+}
+
+// ---- NAVIGATION ----
+function showPage(name) {
+  _currentPage = name;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => { if (t.textContent.toLowerCase().includes(name.slice(0,4))) t.classList.add('active'); });
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'income') renderIncome();
+  if (name === 'expenses') renderExpenses();
+  if (name === 'budget') { renderBudgetForm(); renderBudget(); renderSinkingFunds(); }
+  if (name === 'accounts') renderAccounts();
+  if (name === 'obligations') renderObligations();
+  if (name === 'reminders') renderReminders();
+  if (name === 'settings') {
+    const sym = getSetting('currency', '₱');
+    document.getElementById('currencySymbol').value = sym;
+  }
+}
+
+// ---- OBLIGATIONS ----
+const DB_DEBTS = 'hf_debts';
+const INITIAL_DEBTS = [
+  { id: 'd1', payee: 'Mom (Leonora)', original: 385000, paid: 0, notes: 'Family loan — no fixed schedule' },
+  { id: 'd2', payee: 'Sister',        original:  50500, paid: 0, notes: 'Family loan — no fixed schedule' },
+];
+
+function getDebts() {
+  const stored = load(DB_DEBTS);
+  return (stored && stored.length) ? stored : INITIAL_DEBTS;
+}
+
+function renderObligations() {
+  const sym = getSetting('currency', '₱');
+  const debts = getDebts();
+  const totalOwed = debts.reduce((s, d) => s + (d.original - d.paid), 0);
+
+  document.getElementById('debtList').innerHTML = debts.map(d => {
+    const remaining = d.original - d.paid;
+    const pct = Math.round((d.paid / d.original) * 100);
+    return `
+    <div style="margin-bottom:1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+        <span style="font-size:14px;font-weight:500;">${d.payee}</span>
+        <span style="font-size:14px;color:var(--danger);font-weight:600;">${sym}${remaining.toLocaleString()}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Original: ${sym}${d.original.toLocaleString()} · Paid: ${sym}${d.paid.toLocaleString()} (${pct}%)</div>
+      <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
+        <div style="background:var(--accent);height:6px;width:${pct}%;border-radius:4px;transition:width 0.3s;"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">${d.notes}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('debtTotal').textContent = sym + totalOwed.toLocaleString();
+
+  const allExp = load(DB_EXP);
+  const months = [...new Set(allExp.map(e => e.date.slice(0,7)))];
+  const monthlyExp = allExp.reduce((s,e) => s+e.amount, 0) / Math.max(1, months.length);
+  const efTarget = Math.round(monthlyExp * 6);
+  document.getElementById('emergencyGoal').innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+      <span>6× monthly expenses</span>
+      <span style="font-weight:600;">${sym}${efTarget.toLocaleString()}</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);">Based on ~${sym}${Math.round(monthlyExp).toLocaleString()}/month in tracked expenses. Build this before aggressive investing.</div>`;
+}
+
+function logDebtPayment() {
+  const payee = document.getElementById('debtPayee').value;
+  const amt = parseFloat(document.getElementById('debtAmt').value);
+  const date = document.getElementById('debtDate').value;
+  if (!amt || !date) { alert('Enter amount and date.'); return; }
+  const debts = getDebts();
+  const d = debts.find(x => x.payee === payee);
+  if (d) d.paid = Math.min(d.original, d.paid + amt);
+  save(DB_DEBTS, debts);
+  const exp = load(DB_EXP);
+  exp.push({ id: Date.now(), desc: 'Debt payment — ' + payee, amount: amt, cat: 'Other', date, receipt: null });
+  save(DB_EXP, exp);
+  document.getElementById('debtAmt').value = '';
+  renderObligations();
+  alert('Payment recorded.');
+}
+
+
+
+// ---- SINKING FUNDS ----
+const DB_SF = 'hf_sinking_funds';
+
+function getSinkingFunds() { return load(DB_SF) || []; }
+
+function addSinkingFund() {
+  const cat = document.getElementById('sfCat').value;
+  const amount = parseFloat(document.getElementById('sfAmount').value);
+  const label = document.getElementById('sfLabel').value.trim() || cat + ' fund';
+  if (!amount || amount <= 0) { alert('Enter an amount.'); return; }
+  const funds = getSinkingFunds();
+  const existing = funds.find(f => f.cat === cat && f.label === label);
+  if (existing) {
+    existing.total += amount;
+  } else {
+    funds.push({ id: Date.now(), cat, label, total: amount, funded: 0, createdDate: new Date().toISOString().slice(0,10) });
+  }
+  save(DB_SF, funds);
+  document.getElementById('sfAmount').value = '';
+  document.getElementById('sfLabel').value = '';
+  renderSinkingFunds();
+}
+
+function topUpFund(id) {
+  const funds = getSinkingFunds();
+  const f = funds.find(f => f.id === id);
+  if (!f) return;
+  const input = prompt(`Top up "${f.label}"\n\nHow much are you setting aside now? (₱)`);
+  if (!input) return;
+  const amount = parseFloat(input.replace(/,/g, ''));
+  if (!amount || amount <= 0) { alert('Enter a valid amount.'); return; }
+  f.funded = (f.funded || 0) + amount;
+  save(DB_SF, funds);
+  renderSinkingFunds();
+}
+
+function deleteSinkingFund(id) {
+  requirePin(() => {
+    save(DB_SF, getSinkingFunds().filter(f => f.id !== id));
+    renderSinkingFunds();
+  });
+}
+
+function renderSinkingFunds() {
+  const sym = getSetting('currency', '₱');
+  const funds = getSinkingFunds();
+  const allExp = load(DB_EXP);
+  const container = document.getElementById('sinkingFundsList');
+  if (!funds.length) {
+    container.innerHTML = '<div class="empty" style="margin-bottom:1rem;">No sinking funds yet. Add one above.</div>';
+    return;
+  }
+  container.innerHTML = funds.map(f => {
+    const funded = f.funded || 0;
+    const spent = allExp.filter(e => e.cat === f.cat).reduce((s,e) => s + Number(e.amount), 0);
+    const available = Math.max(0, funded - spent);
+    const stillNeeded = Math.max(0, f.total - funded);
+    // Progress = how much of the target is funded
+    const fundedPct = Math.min(100, Math.round((funded / f.total) * 100));
+    // Depletion = how much of funded amount is already spent
+    const spentPct = funded > 0 ? Math.min(100, Math.round((spent / funded) * 100)) : 0;
+    const isFullyFunded = funded >= f.total;
+    const accentColor = isFullyFunded ? 'var(--accent)' : stillNeeded > 0 ? '#e07b00' : 'var(--accent)';
+    return `
+    <div class="card" style="margin-bottom:0.75rem;border-left:3px solid ${accentColor};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <div style="font-size:14px;font-weight:600;">${f.label}</div>
+          <div style="font-size:12px;color:var(--muted);">${CAT_ICONS[f.cat]||''} ${f.cat}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:15px;font-weight:700;color:${available>0?'var(--accent)':'var(--danger)'};">${sym}${available.toLocaleString()} available</div>
+          <div style="font-size:11px;color:var(--muted);">Target: ${sym}${f.total.toLocaleString()}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;font-size:12px;text-align:center;">
+        <div style="background:var(--accent-light);border-radius:6px;padding:5px;">
+          <div style="font-weight:700;color:var(--accent);">${sym}${funded.toLocaleString()}</div>
+          <div style="color:var(--muted);">Funded</div>
+        </div>
+        <div style="background:#fff3e0;border-radius:6px;padding:5px;">
+          <div style="font-weight:700;color:#e07b00;">${sym}${spent.toLocaleString()}</div>
+          <div style="color:var(--muted);">Spent</div>
+        </div>
+        <div style="background:${stillNeeded>0?'#fdecea':'var(--accent-light)'};border-radius:6px;padding:5px;">
+          <div style="font-weight:700;color:${stillNeeded>0?'var(--danger)':'var(--accent)'};">${stillNeeded>0?'-':'+'}${sym}${stillNeeded.toLocaleString()}</div>
+          <div style="color:var(--muted);">${stillNeeded>0?'Still need':'Covered'}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Funded ${fundedPct}% of target · ${spentPct}% of funded spent</div>
+      <div class="progress-bar" style="margin-bottom:4px;"><div class="progress-fill fill-green" style="width:${fundedPct}%;opacity:0.4;"></div></div>
+      <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill ${spentPct<70?'fill-green':spentPct<90?'fill-amber':'fill-red'}" style="width:${spentPct}%"></div></div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="topUpFund(${f.id})" style="flex:1;font-size:13px;padding:6px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;">💰 Top Up</button>
+        <button onclick="deleteSinkingFund(${f.id})" style="font-size:12px;padding:6px 12px;color:var(--danger);border-color:var(--danger);">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ---- ACCOUNTS ----
+const DB_ACCT = 'hf_accounts';
+const DB_ACCT_TXN = 'hf_acct_txns';
+
+function saveAccountBalance(key, value) {
+  const accts = loadObj(DB_ACCT, {});
+  accts[key] = value;
+  save(DB_ACCT, accts);
+  renderAccounts();
+}
+
+function getAccountBalances() {
+  return loadObj(DB_ACCT, {});
+}
+
+function toggleTransferTo() {
+  const type = document.getElementById('txn-type').value;
+  document.getElementById('txn-to-group').style.display = type === 'transfer' ? '' : 'none';
+}
+
+function logAccountTxn() {
+  const type = document.getElementById('txn-type').value;
+  const from = document.getElementById('txn-from').value;
+  const to = document.getElementById('txn-to').value;
+  const amount = parseFloat(document.getElementById('txn-amount').value);
+  const date = document.getElementById('txn-date').value;
+  const notes = document.getElementById('txn-notes').value.trim();
+  if (!amount || amount <= 0 || !date) { alert('Enter amount and date.'); return; }
+
+  // Update balances
+  const accts = loadObj(DB_ACCT, {});
+  const fromKey = from + '_savings';
+  const toKey = to + '_savings';
+  const fromBal = parseFloat(accts[fromKey] || 0);
+  const toBal = parseFloat(accts[toKey] || 0);
+
+  if (type === 'withdrawal') {
+    accts[fromKey] = Math.max(0, fromBal - amount);
+  } else if (type === 'transfer') {
+    accts[fromKey] = Math.max(0, fromBal - amount);
+    accts[toKey] = toBal + amount;
+  } else if (type === 'deposit') {
+    accts[fromKey] = fromBal + amount;
+  }
+  save(DB_ACCT, accts);
+
+  // Log the transaction
+  const txns = loadObj(DB_ACCT_TXN, []);
+  txns.unshift({ id: Date.now(), type, from, to: type === 'transfer' ? to : null, amount, date, notes });
+  save(DB_ACCT_TXN, txns);
+
+  document.getElementById('txn-amount').value = '';
+  document.getElementById('txn-notes').value = '';
+  renderAccounts();
+}
+
+function deleteAccountTxn(id) {
+  requirePin(() => {
+    const txns = loadObj(DB_ACCT_TXN, []).filter(t => t.id !== id);
+    save(DB_ACCT_TXN, txns);
+    renderAccounts();
+  });
+}
+
+function renderAccounts() {
+  const sym = getSetting('currency', '₱');
+  const accts = getAccountBalances();
+
+  // Restore saved values into inputs
+  const fields = ['mb_savings','mb_savings_date','bpi_savings','bpi_savings_date'];
+  fields.forEach(k => {
+    const el = document.getElementById(k.replace(/_/g, '-'));
+    if (el && accts[k] !== undefined) el.value = accts[k];
+  });
+
+  // Total cash
+  const mbSav = parseFloat(accts['mb_savings'] || 0);
+  const bpiSav = parseFloat(accts['bpi_savings'] || 0);
+  const total = mbSav + bpiSav;
+  const mbDate = accts['mb_savings_date'] ? ' · as of ' + accts['mb_savings_date'] : '';
+  const bpiDate = accts['bpi_savings_date'] ? ' · as of ' + accts['bpi_savings_date'] : '';
+  document.getElementById('totalCashCard').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;">
+      <div>
+        <div style="font-size:12px;color:var(--muted);">Metro Bank${mbDate}</div>
+        <div style="font-size:18px;font-weight:700;color:var(--accent);">${sym}${mbSav.toLocaleString()}</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--muted);">BPI${bpiDate}</div>
+        <div style="font-size:18px;font-weight:700;color:var(--accent);">${sym}${bpiSav.toLocaleString()}</div>
+      </div>
+      <div style="border-left:1px solid var(--border);padding-left:10px;">
+        <div style="font-size:12px;color:var(--muted);">Total cash</div>
+        <div style="font-size:18px;font-weight:700;">${sym}${total.toLocaleString()}</div>
+      </div>
+    </div>`;
+
+  // CC summary — current month
+  const now = new Date();
+  const ym = now.toISOString().slice(0, 7);
+  const allExp = load(DB_EXP);
+  const monthExp = allExp.filter(e => e.date && e.date.startsWith(ym));
+  const cards = ['Metro Bank CC', 'BPI CC'];
+  const ccColors = { 'Metro Bank CC': '#1a56db', 'BPI CC': '#c0392b' };
+
+  document.getElementById('ccSummary').innerHTML = cards.map(card => {
+    const cardExp = monthExp.filter(e => e.payMethod === card);
+    const total = cardExp.reduce((s, e) => s + Number(e.amount), 0);
+    const count = cardExp.length;
+    return `<div class="card" style="margin-bottom:0.75rem;border-left:3px solid ${ccColors[card]};">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:14px;font-weight:600;">${card}</div>
+          <div style="font-size:12px;color:var(--muted);">${count} transaction${count !== 1 ? 's' : ''} this month</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:20px;font-weight:700;color:${ccColors[card]};">${sym}${total.toLocaleString()}</div>
+          <div style="font-size:11px;color:var(--muted);">owed this cycle</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // CC expense list
+  const ccExp = monthExp.filter(e => e.payMethod && e.payMethod !== 'Cash').sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('ccExpenseList').innerHTML = ccExp.length
+    ? ccExp.map(e => `
+      <div class="entry-row">
+        <div class="entry-info">
+          <div class="entry-title">${e.desc}</div>
+          <div class="entry-sub">${e.date} · <span class="badge" style="background:#e8f0fe;color:${ccColors[e.payMethod]||'#333'}">${e.payMethod}</span> · ${e.cat}</div>
+        </div>
+        <div class="entry-amount expense">${sym}${Number(e.amount).toLocaleString()}</div>
+      </div>`).join('')
+    : '<div class="empty">No credit card expenses logged this month.</div>';
+
+  // Set default date on transaction form
+  const dateEl = document.getElementById('txn-date');
+  if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
+
+  // Transaction history
+  const txns = loadObj(DB_ACCT_TXN, []);
+  const typeLabel = { withdrawal: 'Withdrawal', transfer: 'Transfer', deposit: 'Deposit' };
+  const typeColor = { withdrawal: '#c0392b', transfer: '#1a56db', deposit: '#27ae60' };
+  const acctLabel = { metrobank: 'Metro Bank', bpi: 'BPI' };
+
+  const txnListEl = document.getElementById('acctTxnList');
+  if (txnListEl) {
+    txnListEl.innerHTML = txns.length
+      ? txns.slice(0, 30).map(t => {
+          const label = t.type === 'transfer'
+            ? `${acctLabel[t.from]||t.from} → ${acctLabel[t.to]||t.to}`
+            : `${acctLabel[t.from]||t.from}`;
+          return `<div class="entry-row">
+            <div class="entry-info">
+              <div class="entry-title">${label}${t.notes ? ' · ' + t.notes : ''}</div>
+              <div class="entry-sub">${t.date} · <span class="badge" style="background:${typeColor[t.type]}22;color:${typeColor[t.type]}">${typeLabel[t.type]}</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="entry-amount" style="color:${typeColor[t.type]};">${t.type==='deposit'?'+':'-'}${sym}${Number(t.amount).toLocaleString()}</div>
+              <button onclick="deleteAccountTxn(${t.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;" title="Delete">×</button>
+            </div>
+          </div>`;
+        }).join('')
+      : '<div class="empty">No transactions logged yet.</div>';
+  }
+}
+
+// ---- PIN LOCK ----
+const PIN_KEY = 'hf_pin';
+let pinBuffer = '';
+let pinMode = 'unlock'; // 'unlock' | 'set1' | 'set2'
+let pinSetFirst = '';
+let pinDeleteCallback = null;
+
+function getStoredPin() { return localStorage.getItem(PIN_KEY) || ''; }
+
+function pinPress(digit) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += digit;
+  updatePinDots();
+  if (pinBuffer.length === 4) setTimeout(pinSubmit, 120);
+}
+
+function pinBack() {
+  pinBuffer = pinBuffer.slice(0, -1);
+  updatePinDots();
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('d' + i).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+function pinError(msg) {
+  document.getElementById('pinError').textContent = msg;
+  pinBuffer = '';
+  updatePinDots();
+  setTimeout(() => { document.getElementById('pinError').textContent = ''; }, 1800);
+}
+
+function pinSubmit() {
+  const stored = getStoredPin();
+  if (pinMode === 'unlock') {
+    if (!stored || pinBuffer === stored) {
+      document.getElementById('pinOverlay').classList.add('hidden');
+      pinBuffer = '';
+      updatePinDots();
+    } else {
+      pinError('Incorrect PIN. Try again.');
+    }
+  } else if (pinMode === 'set1') {
+    pinSetFirst = pinBuffer;
+    pinBuffer = '';
+    updatePinDots();
+    pinMode = 'set2';
+    document.getElementById('pinLabel').textContent = 'Confirm your new PIN';
+    document.getElementById('pinError').textContent = '';
+  } else if (pinMode === 'set2') {
+    if (pinBuffer === pinSetFirst) {
+      localStorage.setItem(PIN_KEY, pinBuffer);
+      pinBuffer = '';
+      pinSetFirst = '';
+      pinMode = 'unlock';
+      document.getElementById('pinOverlay').classList.add('hidden');
+      updatePinDots();
+      refreshPinSettings();
+      alert('PIN set successfully!');
+    } else {
+      pinSetFirst = '';
+      pinMode = 'set1';
+      pinError('PINs did not match. Start again.');
+      document.getElementById('pinLabel').textContent = 'Choose a 4-digit PIN';
+    }
+  } else if (pinMode === 'delete') {
+    if (pinBuffer === stored) {
+      document.getElementById('pinOverlay').classList.add('hidden');
+      pinBuffer = '';
+      updatePinDots();
+      pinMode = 'unlock';
+      if (pinDeleteCallback) { pinDeleteCallback(); pinDeleteCallback = null; }
+    } else {
+      pinError('Incorrect PIN.');
+    }
+  }
+}
+
+function startSetPin() {
+  pinBuffer = '';
+  pinSetFirst = '';
+  pinMode = 'set1';
+  updatePinDots();
+  document.getElementById('pinLabel').textContent = 'Choose a 4-digit PIN';
+  document.getElementById('pinError').textContent = '';
+  document.getElementById('pinOverlay').classList.remove('hidden');
+}
+
+function removePin() {
+  if (!confirm('Remove PIN lock? Anyone will be able to open this app.')) return;
+  localStorage.removeItem(PIN_KEY);
+  refreshPinSettings();
+}
+
+function requirePin(callback) {
+  const stored = getStoredPin();
+  if (!stored) { callback(); return; }
+  pinBuffer = '';
+  pinDeleteCallback = callback;
+  pinMode = 'delete';
+  updatePinDots();
+  document.getElementById('pinLabel').textContent = 'Enter PIN to confirm';
+  document.getElementById('pinError').textContent = '';
+  document.getElementById('pinOverlay').classList.remove('hidden');
+}
+
+function refreshPinSettings() {
+  const has = !!getStoredPin();
+  const status = document.getElementById('pinStatus');
+  if (status) status.textContent = has ? '🔒 PIN is active' : '🔓 No PIN set — app is unlocked';
+  const btnRemove = document.getElementById('btnRemovePin');
+  if (btnRemove) btnRemove.style.display = has ? 'inline-block' : 'none';
+}
+
+function lockApp() {
+  const stored = getStoredPin();
+  if (!stored) return;
+  pinMode = 'unlock';
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('pinLabel').textContent = 'Enter your PIN';
+  document.getElementById('pinError').textContent = '';
+  document.getElementById('pinOverlay').classList.remove('hidden');
+}
+
+function initPinLock() {
+  const stored = getStoredPin();
+  if (stored) {
+    lockApp();
+  } else {
+    document.getElementById('pinOverlay').classList.add('hidden');
+  }
+  // Re-lock whenever the tab becomes hidden then visible again
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && getStoredPin()) {
+      lockApp();
+    }
+  });
+}
+
+// ---- INIT ----
+function setTodayDates() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('inc-date').value = today;
+  document.getElementById('exp-date').value = today;
+}
+
+// ---- REMINDERS ----
+const DB_REM = 'hf_reminders';
+const DB_CC_DUE = 'hf_cc_due';
+const DB_REM_SENT = 'hf_rem_sent';
+const REM_EMAIL_TO = 'zhalucci@gmail.com';
+const REM_EMAIL_CC = 'risobry@gmail.com';
+const EJS_SERVICE  = 'service_f6m7eqn';
+const EJS_TEMPLATE = 'template_ehuz7rh';
+const EJS_KEY      = 'CnxRPqrfQXEiXmor9';
+
+function addReminder() {
+  const name = document.getElementById('rem-name').value.trim();
+  const type = document.getElementById('rem-type').value;
+  const day = parseInt(document.getElementById('rem-day').value);
+  const amount = parseFloat(document.getElementById('rem-amount').value) || 0;
+  const advance = parseInt(document.getElementById('rem-advance').value) || 3;
+  const notes = document.getElementById('rem-notes').value.trim();
+  if (!name || !day || day < 1 || day > 31) { alert('Enter a name and a valid day (1–31).'); return; }
+  const rems = loadObj(DB_REM, []);
+  rems.push({ id: Date.now(), name, type, day, amount, advance, notes });
+  save(DB_REM, rems);
+  document.getElementById('rem-name').value = '';
+  document.getElementById('rem-day').value = '';
+  document.getElementById('rem-amount').value = '';
+  document.getElementById('rem-notes').value = '';
+  renderReminders();
+}
+
+function deleteReminder(id) {
+  requirePin(() => {
+    save(DB_REM, loadObj(DB_REM, []).filter(r => r.id !== id));
+    renderReminders();
+  });
+}
+
+function saveCCDue() {
+  const mb = parseInt(document.getElementById('cc-mb-day').value) || 0;
+  const bpi = parseInt(document.getElementById('cc-bpi-day').value) || 0;
+  save(DB_CC_DUE, { mb, bpi });
+  renderReminders();
+}
+
+function getDaysUntilDue(day) {
+  const now = new Date();
+  const today = now.getDate();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  let due = new Date(year, month, day);
+  if (due < now) due = new Date(year, month + 1, day);
+  return Math.ceil((due - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+}
+
+function getNextDueDate(day) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  let due = new Date(year, month, day);
+  if (due < now) due = new Date(year, month + 1, day);
+  return due.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+async function ejsSend(subject, message) {
+  await emailjs.send(EJS_SERVICE, EJS_TEMPLATE, {
+    to_email: REM_EMAIL_TO,
+    cc_email: REM_EMAIL_CC,
+    subject,
+    message
+  });
+}
+
+async function sendReminderEmail(rem, silent = false) {
+  const sym = getSetting('currency', '₱');
+  const dueDate = getNextDueDate(rem.day);
+  const amtLine = rem.amount > 0 ? `\nAmount: ${sym}${Number(rem.amount).toLocaleString()}` : '';
+  const notesLine = rem.notes ? `\nNotes: ${rem.notes}` : '';
+  const subject = `Payment Reminder: ${rem.name} due ${dueDate}`;
+  const message = `Hi,\n\nThis is a reminder that the following payment is coming up:\n\n${rem.name}\nDue: ${dueDate}${amtLine}${notesLine}\n\nPlease arrange payment on time.\n\n— Monajan HouseFin`;
+  try {
+    await ejsSend(subject, message);
+    if (!silent) alert(`Reminder sent to ${REM_EMAIL_TO}`);
+  } catch(e) {
+    if (!silent) alert('Failed to send email. Check your connection.');
+    console.warn('EmailJS error:', e);
+  }
+}
+
+async function sendCCReminderEmail(bank, day, silent = false) {
+  const dueDate = getNextDueDate(day);
+  const subject = `Credit Card Reminder: ${bank} CC due ${dueDate}`;
+  const message = `Hi,\n\nThis is a reminder that your ${bank} credit card payment is due on ${dueDate}.\n\nPlease check your statement and arrange payment.\n\n— Monajan HouseFin`;
+  try {
+    await ejsSend(subject, message);
+    if (!silent) alert(`Reminder sent to ${REM_EMAIL_TO}`);
+  } catch(e) {
+    if (!silent) alert('Failed to send email. Check your connection.');
+    console.warn('EmailJS error:', e);
+  }
+}
+
+// Auto-send reminders on app open — fires once per day per reminder
+async function autoSendReminders() {
+  const today = new Date().toISOString().slice(0, 10);
+  const sent = loadObj(DB_REM_SENT, {}); // { 'remId_date': true }
+  const rems = loadObj(DB_REM, []);
+  const ccDue = loadObj(DB_CC_DUE, {});
+  let anySent = false;
+
+  for (const rem of rems) {
+    const d = getDaysUntilDue(rem.day);
+    const key = `${rem.id}_${today}`;
+    if (d <= rem.advance && !sent[key]) {
+      await sendReminderEmail(rem, true);
+      sent[key] = true;
+      anySent = true;
+    }
+  }
+
+  for (const [bank, day] of [['Metro Bank', ccDue.mb], ['BPI', ccDue.bpi]]) {
+    if (!day) continue;
+    const d = getDaysUntilDue(day);
+    const key = `cc_${bank}_${today}`;
+    if (d <= 5 && !sent[key]) {
+      await sendCCReminderEmail(bank, day, true);
+      sent[key] = true;
+      anySent = true;
+    }
+  }
+
+  if (anySent) save(DB_REM_SENT, sent);
+}
+
+function renderReminders() {
+  const sym = getSetting('currency', '₱');
+  const rems = loadObj(DB_REM, []);
+  const ccDue = loadObj(DB_CC_DUE, {});
+
+  // Restore CC due day inputs
+  if (ccDue.mb) document.getElementById('cc-mb-day').value = ccDue.mb;
+  if (ccDue.bpi) document.getElementById('cc-bpi-day').value = ccDue.bpi;
+
+  // CC due summary
+  const ccParts = [];
+  if (ccDue.mb) { const d = getDaysUntilDue(ccDue.mb); ccParts.push(`Metro Bank CC: due ${getNextDueDate(ccDue.mb)} (${d} day${d!==1?'s':''} away)`); }
+  if (ccDue.bpi) { const d = getDaysUntilDue(ccDue.bpi); ccParts.push(`BPI CC: due ${getNextDueDate(ccDue.bpi)} (${d} day${d!==1?'s':''} away)`); }
+  document.getElementById('ccDueSummary').textContent = ccParts.join(' · ') || 'No CC due dates set yet.';
+
+  // Alert banner — items due within their advance window
+  const urgent = rems.filter(r => getDaysUntilDue(r.day) <= r.advance);
+  const ccUrgent = [];
+  if (ccDue.mb && getDaysUntilDue(ccDue.mb) <= 5) ccUrgent.push(`Metro Bank CC (${getDaysUntilDue(ccDue.mb)}d)`);
+  if (ccDue.bpi && getDaysUntilDue(ccDue.bpi) <= 5) ccUrgent.push(`BPI CC (${getDaysUntilDue(ccDue.bpi)}d)`);
+  const bannerEl = document.getElementById('remBanner');
+  const allUrgent = [...urgent.map(r => `${r.name} (${getDaysUntilDue(r.day)}d)`), ...ccUrgent];
+  if (allUrgent.length) {
+    bannerEl.innerHTML = `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;font-size:13px;">⚠️ <strong>${allUrgent.length} payment${allUrgent.length!==1?'s':''} coming up:</strong> ${allUrgent.join(', ')}</div>`;
+  } else {
+    bannerEl.innerHTML = '';
+  }
+
+  // Reminders list sorted by days until due
+  const sorted = [...rems].sort((a, b) => getDaysUntilDue(a.day) - getDaysUntilDue(b.day));
+  const listEl = document.getElementById('remList');
+  if (!listEl) return;
+
+  // CC rows
+  const ccRows = [];
+  if (ccDue.mb) {
+    const d = getDaysUntilDue(ccDue.mb);
+    const urgent = d <= 5;
+    ccRows.push(`<div class="entry-row" style="${urgent?'background:#fff3cd;border-radius:8px;padding:4px 8px;':''}">
+      <div class="entry-info">
+        <div class="entry-title">💳 Metro Bank CC payment</div>
+        <div class="entry-sub">Due ${getNextDueDate(ccDue.mb)} · <span style="color:${d<=3?'#c0392b':d<=7?'#e67e22':'#27ae60'};font-weight:600;">${d} day${d!==1?'s':''} away</span></div>
+      </div>
+      <button onclick="sendCCReminderEmail('Metro Bank',${ccDue.mb})" style="font-size:12px;padding:4px 10px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;">✉ Email</button>
+    </div>`);
+  }
+  if (ccDue.bpi) {
+    const d = getDaysUntilDue(ccDue.bpi);
+    const urgent = d <= 5;
+    ccRows.push(`<div class="entry-row" style="${urgent?'background:#fff3cd;border-radius:8px;padding:4px 8px;':''}">
+      <div class="entry-info">
+        <div class="entry-title">💳 BPI CC payment</div>
+        <div class="entry-sub">Due ${getNextDueDate(ccDue.bpi)} · <span style="color:${d<=3?'#c0392b':d<=7?'#e67e22':'#27ae60'};font-weight:600;">${d} day${d!==1?'s':''} away</span></div>
+      </div>
+      <button onclick="sendCCReminderEmail('BPI',${ccDue.bpi})" style="font-size:12px;padding:4px 10px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;">✉ Email</button>
+    </div>`);
+  }
+
+  const remRows = sorted.map(r => {
+    const d = getDaysUntilDue(r.day);
+    const isUrgent = d <= r.advance;
+    const typeTag = r.type === 'monthly' ? 'Monthly' : r.type === 'annual' ? 'Annual' : 'One-time';
+    return `<div class="entry-row" style="${isUrgent?'background:#fff3cd;border-radius:8px;padding:4px 8px;':''}">
+      <div class="entry-info">
+        <div class="entry-title">${r.name}${r.amount > 0 ? ' — ' + sym + Number(r.amount).toLocaleString() : ''}</div>
+        <div class="entry-sub">Due ${getNextDueDate(r.day)} · <span style="color:${d<=3?'#c0392b':d<=7?'#e67e22':'#27ae60'};font-weight:600;">${d} day${d!==1?'s':''} away</span> · <span class="badge">${typeTag}</span>${r.notes?' · '+r.notes:''}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button onclick="sendReminderEmail(${JSON.stringify(r).replace(/"/g,'&quot;')})" style="font-size:12px;padding:4px 10px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;">✉ Email</button>
+        <button onclick="deleteReminder(${r.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;" title="Delete">×</button>
+      </div>
+    </div>`;
+  });
+
+  const allRows = [...ccRows, ...remRows];
+  listEl.innerHTML = allRows.length
+    ? `<div class="card">${allRows.join('')}</div>`
+    : '<div class="card"><div class="empty">No reminders yet. Add your first one above.</div></div>';
+
+  // Update dashboard widget
+  renderDashRemWidget();
+}
+
+function renderDashRemWidget() {
+  const rems = loadObj(DB_REM, []);
+  const ccDue = loadObj(DB_CC_DUE, {});
+  const sym = getSetting('currency', '₱');
+
+  // Get items due within 7 days
+  const upcoming = rems.filter(r => getDaysUntilDue(r.day) <= 7)
+    .sort((a, b) => getDaysUntilDue(a.day) - getDaysUntilDue(b.day));
+  const ccUpcoming = [];
+  if (ccDue.mb && getDaysUntilDue(ccDue.mb) <= 7) ccUpcoming.push({ name: 'Metro Bank CC', day: ccDue.mb, amount: 0 });
+  if (ccDue.bpi && getDaysUntilDue(ccDue.bpi) <= 7) ccUpcoming.push({ name: 'BPI CC', day: ccDue.bpi, amount: 0 });
+  const all = [...ccUpcoming, ...upcoming];
+
+  const widget = document.getElementById('dashRemWidget');
+  const list = document.getElementById('dashRemList');
+  if (!widget || !list) return;
+  if (!all.length) { widget.style.display = 'none'; return; }
+  widget.style.display = '';
+  list.innerHTML = all.map(r => {
+    const d = getDaysUntilDue(r.day);
+    return `<div class="entry-row">
+      <div class="entry-info">
+        <div class="entry-title">${r.name}${r.amount>0?' — '+sym+Number(r.amount).toLocaleString():''}</div>
+        <div class="entry-sub" style="color:${d<=3?'#c0392b':d<=5?'#e67e22':'#888'};">Due ${getNextDueDate(r.day)} · ${d} day${d!==1?'s':''} away</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function seedData() {
+  // v25 patch: restore any missing core data regardless of seed version
+  const bdgCheck = loadObj(DB_BDG, {});
+  if (!Object.keys(bdgCheck).length) {
+    save(DB_BDG, {
+      'Groceries': 22000, 'Bills & utilities': 6100, 'Mortgage': 5018,
+      'Taxes': 3000, 'Household Staff': 16000, 'Kids & family': 41333,
+      'Transport': 11000, 'Health': 8383, 'Family support': 23000,
+      'Dining out': 4333, 'Entertainment': 10167, 'Gifts & celebrations': 3333,
+      'Business': 51302, 'Personal care': 2108, 'Subscriptions': 600,
+      'Giving': 1000, 'Other': 400,
+    });
+  }
+  const sfCheck = load(DB_SF);
+  if (!sfCheck.length) {
+    save(DB_SF, [
+      { id: 9001, cat: 'Health',               label: 'Hospitalization fund 2026',       total: 40000,  createdDate: '2026-01-01' },
+      { id: 9002, cat: 'Health',               label: 'Family dental 2026',               total: 3000,   createdDate: '2026-01-01' },
+      { id: 9003, cat: 'Health',               label: 'Kids immunizations 2026',          total: 18000,  createdDate: '2026-01-01' },
+      { id: 9004, cat: 'Taxes',                label: 'Property tax 2026',                total: 25000,  createdDate: '2026-01-01' },
+      { id: 9005, cat: 'Taxes',                label: 'Rental business tax 2026',         total: 11000,  createdDate: '2026-01-01' },
+      { id: 9006, cat: 'Gifts & celebrations', label: 'Birthdays & celebrations 2026',    total: 40000,  createdDate: '2026-01-01' },
+      { id: 9007, cat: 'Personal care',        label: 'Wife salon 2026',                  total: 6000,   createdDate: '2026-01-01' },
+      { id: 9008, cat: 'Personal care',        label: 'Wife skincare 2026',               total: 12000,  createdDate: '2026-01-01' },
+      { id: 9009, cat: 'Kids & family',        label: 'School supplies & needs 2026',     total: 10000,  createdDate: '2026-06-01' },
+      { id: 9010, cat: 'Kids & family',        label: 'Tuition — 3 kids 2026–2027',       total: 100000, createdDate: '2026-06-01' },
+      { id: 9011, cat: 'Transport',            label: 'Car maintenance & registration 2026', total: 17500, createdDate: '2026-01-01' },
+      { id: 9012, cat: 'Household Staff',      label: '13th month pay 2026',              total: 16000,  createdDate: '2026-01-01' },
+      { id: 9013, cat: 'Giving',               label: 'Church tithe 2026',                total: 12000,  createdDate: '2026-01-01' },
+      { id: 9014, cat: 'Other',                label: 'Memorial lot maintenance 2026',    total: 2400,   createdDate: '2026-01-01' },
+      { id: 9015, cat: 'Entertainment',        label: 'Weekend outings 2026',             total: 104000, createdDate: '2026-01-01' },
+      { id: 9016, cat: 'Dining out',           label: 'Family dining 2026',               total: 52000,  createdDate: '2026-01-01' },
+      { id: 9017, cat: 'Clothing',             label: 'Kids uniforms & clothing 2026',    total: 4000,   createdDate: '2026-01-01' },
+      { id: 9018, cat: 'Family support',       label: 'PhilHealth 2026',                  total: 6000,   createdDate: '2026-01-01' },
+    ]);
+  }
+  const remCheck = loadObj(DB_REM, []);
+  if (!remCheck.length) {
+    save(DB_REM, [
+      { id: 8001, name: 'Internet',           type: 'monthly', day: 1, amount: 0, advance: 3, notes: '' },
+      { id: 8002, name: 'Sanwad Water',        type: 'monthly', day: 1, amount: 0, advance: 3, notes: '' },
+      { id: 8003, name: 'Electricity Iselco', type: 'monthly', day: 1, amount: 0, advance: 3, notes: '' },
+      { id: 8004, name: 'Aunti Carmer',        type: 'monthly', day: 1, amount: 0, advance: 3, notes: 'Family support' },
+      { id: 8005, name: 'Neslyn',              type: 'monthly', day: 1, amount: 0, advance: 3, notes: 'Household staff' },
+      { id: 8006, name: 'Kuya Bobby',          type: 'monthly', day: 1, amount: 0, advance: 3, notes: 'Household staff' },
+    ]);
+  }
+  const incCheck = load(DB_INC);
+  if (!incCheck.length) {
+    save(DB_INC, [
+      { id: 5001, source: 'Rental — Whole House (Back)',    amount: 7000,    date: '2026-06-03', type: 'Rental income', notes: '' },
+      { id: 5002, source: 'Rental — Ground Floor Unit 1',   amount: 4666.67, date: '2026-06-03', type: 'Rental income', notes: 'Commercial' },
+      { id: 5003, source: 'Rental — Ground Floor Unit 2',   amount: 4666.67, date: '2026-06-03', type: 'Rental income', notes: 'Commercial' },
+      { id: 5004, source: 'Rental — Ground Floor Unit 3',   amount: 4666.67, date: '2026-06-03', type: 'Rental income', notes: 'Commercial' },
+      { id: 5005, source: 'Rental — Upstairs Unit 1',       amount: 2500,    date: '2026-06-03', type: 'Rental income', notes: 'Residential' },
+      { id: 5006, source: 'Rental — Upstairs Unit 2',       amount: 2500,    date: '2026-06-03', type: 'Rental income', notes: 'Residential' },
+      { id: 5007, source: 'Rental — Upstairs Unit 3',       amount: 2500,    date: '2026-06-03', type: 'Rental income', notes: 'Residential' },
+      { id: 5008, source: 'Rental — Mortgage Unit',         amount: 4000,    date: '2026-06-03', type: 'Rental income', notes: '' },
+    ]);
+  }
+  saveSetting('currency', '₱');
+  save('hf_seeded', 'v25');
+  if (_cache['hf_seeded'] === 'v25') return;
+  if (_cache['hf_seeded'] === 'v24') return;
+  if (_cache['hf_seeded'] === 'v23') return;
+  const bdg = {
+    'Groceries': 22000,
+    'Bills & utilities': 6100,
+    'Mortgage': 5018,
+    'Taxes': 3000,
+    'Household Staff': 16000,
+    'Kids & family': 41333,
+    'Transport': 11000,
+    'Health': 8383,
+    'Family support': 23000,
+    'Dining out': 4333,
+    'Entertainment': 10167,
+    'Gifts & celebrations': 3333,
+    'Business': 51302,
+    'Personal care': 2108,
+    'Subscriptions': 600,
+    'Giving': 1000,
+    'Other': 400,
+  };
+  save(DB_BDG, bdg);
+
+  const sf = [
+    { id: 9001, cat: 'Health',               label: 'Hospitalization fund 2026',       total: 40000,  createdDate: '2026-01-01' },
+    { id: 9002, cat: 'Health',               label: 'Family dental 2026',               total: 3000,   createdDate: '2026-01-01' },
+    { id: 9003, cat: 'Health',               label: 'Kids immunizations 2026',          total: 18000,  createdDate: '2026-01-01' },
+    { id: 9004, cat: 'Taxes',                label: 'Property tax 2026',                total: 25000,  createdDate: '2026-01-01' },
+    { id: 9005, cat: 'Taxes',                label: 'Rental business tax 2026',         total: 11000,  createdDate: '2026-01-01' },
+    { id: 9006, cat: 'Gifts & celebrations', label: 'Birthdays & celebrations 2026',   total: 40000,  createdDate: '2026-01-01' },
+    { id: 9007, cat: 'Personal care',        label: 'Wife salon 2026',                  total: 6000,   createdDate: '2026-01-01' },
+    { id: 9008, cat: 'Personal care',        label: 'Wife skincare 2026',               total: 12000,  createdDate: '2026-01-01' },
+    { id: 9009, cat: 'Kids & family',        label: 'School supplies & needs 2026',    total: 10000,  createdDate: '2026-06-01' },
+    { id: 9010, cat: 'Kids & family',        label: 'Tuition — 3 kids 2026–2027',      total: 100000, createdDate: '2026-06-01' },
+    { id: 9011, cat: 'Transport',            label: 'Car maintenance & registration 2026', total: 17500, createdDate: '2026-01-01' },
+    { id: 9012, cat: 'Household Staff',      label: '13th month pay 2026',              total: 16000,  createdDate: '2026-01-01' },
+    { id: 9013, cat: 'Giving',               label: 'Church tithe 2026',                total: 12000,  createdDate: '2026-01-01' },
+    { id: 9014, cat: 'Other',               label: 'Memorial lot maintenance 2026',    total: 2400,   createdDate: '2026-01-01' },
+    { id: 9015, cat: 'Entertainment',        label: 'Weekend outings 2026',             total: 104000, createdDate: '2026-01-01' },
+    { id: 9016, cat: 'Dining out',           label: 'Family dining 2026',               total: 52000,  createdDate: '2026-01-01' },
+    { id: 9017, cat: 'Clothing',             label: 'Kids uniforms & clothing 2026',   total: 4000,   createdDate: '2026-01-01' },
+    { id: 9018, cat: 'Family support',       label: 'PhilHealth 2026',                  total: 6000,   createdDate: '2026-01-01' },
+  ];
+  save(DB_SF, sf);
+
+  // June 2026 rental income — fixed monthly amounts, pre-loaded
+  const rentalInc = [
+    { id: 5001, source: 'Rental — Whole House (Back)',      amount: 7000,    date: '2026-06-03', type: 'Rental income', notes: '' },
+    { id: 5002, source: 'Rental — Ground Floor Unit 1',     amount: 4666.67, date: '2026-06-03', type: 'Rental income', notes: 'Commercial' },
+    { id: 5003, source: 'Rental — Ground Floor Unit 2',     amount: 4666.67, date: '2026-06-03', type: 'Rental income', notes: 'Commercial' },
+    { id: 5004, source: 'Rental — Ground Floor Unit 3',     amount: 4666.67, date: '2026-06-03', type: 'Rental income', notes: 'Commercial' },
+    { id: 5005, source: 'Rental — Upstairs Unit 1',         amount: 2500,    date: '2026-06-03', type: 'Rental income', notes: 'Residential' },
+    { id: 5006, source: 'Rental — Upstairs Unit 2',         amount: 2500,    date: '2026-06-03', type: 'Rental income', notes: 'Residential' },
+    { id: 5007, source: 'Rental — Upstairs Unit 3',         amount: 2500,    date: '2026-06-03', type: 'Rental income', notes: 'Residential' },
+    { id: 5008, source: 'Rental — Mortgage Unit',           amount: 4000,    date: '2026-06-03', type: 'Rental income', notes: '' },
+  ];
+  save(DB_INC, rentalInc);
+
+  save(DB_REM, [
+    { id: 8001, name: 'Internet',          type: 'monthly', day: 1,  amount: 0, advance: 3, notes: '' },
+    { id: 8002, name: 'Sanwad Water',       type: 'monthly', day: 1,  amount: 0, advance: 3, notes: '' },
+    { id: 8003, name: 'Electricity Iselco', type: 'monthly', day: 1,  amount: 0, advance: 3, notes: '' },
+    { id: 8004, name: 'Aunti Carmer',       type: 'monthly', day: 1,  amount: 0, advance: 3, notes: 'Family support' },
+    { id: 8005, name: 'Neslyn',             type: 'monthly', day: 1,  amount: 0, advance: 3, notes: 'Household staff' },
+    { id: 8006, name: 'Kuya Bobby',         type: 'monthly', day: 1,  amount: 0, advance: 3, notes: 'Household staff' },
+  ]);
+
+  saveSetting('currency', '₱');
+  saveSetting('investPct', 20);
+  save('hf_seeded', 'v24');
+}
+
+window.onload = () => { initFirebase(); };
+</script>
+</body>
+</html>
